@@ -12,6 +12,14 @@ export default defineUserConfig({
     logo: 'https://vuejs.press/images/hero.png',
 
     navbar: ['/', '/get-started'],
+
+    sidebar: [
+      "Introduction",
+      "Installation",
+      "GettingStarted",
+      "Fundamentals",
+      "TroubleShooting",
+    ],
   }),
 
   bundler: viteBundler(),
