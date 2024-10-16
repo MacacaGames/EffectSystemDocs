@@ -1,67 +1,115 @@
-Script API : [Document](https://macacagames.github.io/EffectSystem/) 
-Document : 
-
-# Introduction
-The Effect System is a powerful numerical calculator based on EffectType. It offers high flexibility, manageable states, custom logic implementation, trigger conditions, and visual management. Effect System can handle various functionalities, such as:
-
-- Increasing ATK by 50 points.
-- Increasing HP by 10%.
-- Increasing DEF by 5% for 50 seconds.
-- Reducing a specified enemy's ATK by 100 points, usable every 30 seconds.
-- Reducing the opponent's DEF by 50% when a successful block occurs.
-
-The system uses tables to combine various buffs, debuffs, or special effects, with `EffectInfo` as the core unit, allowing for easy application across different projects. Engineers only need to implement the `EffectType` and register activation and deactivation timings.
-
----------
-### Features
-- Adjust effects through Excel
-- Combine different Effect using `EffectSubInfo`
----
-
-# Installation
-### Option 1: OpenUPM (Recommended)
-
-```sh
-openupm add com.macacagames.effectsystem
-```
-
-### Option 2: Unity Package Manager
-Add the following to your project's manifest.json file:
-```json
-{
-    "dependencies": {
-        "com.macacagames.utility": "https://github.com/MacacaGames/MacacaUtility.git",
-        "com.macacagames.effectsystem": "https://github.com/MacacaGames/EffectSystem.git"
-    }
-}
-```
-
-### Option 3: Git SubModule
-Add the EffectSystem as a Git submodule:
-```bash
-git submodule add https://github.com/MacacaGames/EffectSystem.git Assets/MacacaEffectSystem
-```
-> Note: EffectSystem depends on MacacaUtility, so you also need to add MacacaUtility as a Git submodule:
-```bash
-git submodule add https://github.com/MacacaGames/MacacaUtility.git Assets/MacacaUtility
-```
----
 # Fundamentals
 
 ## Life 
-```mermaid
-graph LR
-EffectSystem.AddEffect[EffectSystem.AddEffect]---->Start[Start] 
-Start[Start] --ActiveCondition--> Active(Active)
-Active(Active)  --MaintainTime Checking--> Deactive(Deactive)
-Active(Active)  --Deactive Condition--> Deactive(Deactive)
-Deactive(Deactive) --Active Condition--> Active(Active) 
-Deactive(Deactive) --CD Checking--> Active(Active) 
-Deactive(Deactive) --EffectSystem.CleanEffectableObject--> End(End)
+![](Img~/lifecycle.png)
+
+
+
+## EffectInfo
+`EffectInfo` defines an effect by storing its settings but does not handle the runtime behavior.
+
+Each EffectInfo should focus on a single function, such as calculating ATK.
+
+| Field                    | Data Type                  | Description                                                                                                                                |
+| ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| id                       | string                     | The unique ID of an effect                                          |
+| type                     | string                     | The type of the effect                       |
+| maintainTime             | float                      | The duration for which the effect remains active                        |
+| activeCondition          | string                     | The condition that triggers the effect                     |
+| activeRequirementLists   | string[]                   | The requirements for triggering the effect    |
+| activeProbability        | float                      | The probability (0-100) of the effect being activated         |
+| deactiveCondition        | string                     | The condition that deactivates the effect              |
+| deactiveRequirementLists | string[]                   | The requirements for deactivating the effect                    |
+| deactiveProbability      | float                      | The probability (0-100) of the effect being deactivated                |
+| cooldownTime             | float                      | The cooldown time in seconds before the effect can be activated again                                                         |
+| logic                    | enum                       | Life cycle management preset logic, see [TriggerTransType](#triggertranstype) for more details      |
+| triggerTransType         | enum                       | An enumeration for managing the logic when the effect is triggered more than once, see [EffectLifeCycleLogic](#effectlifecyclelogic) for detailss |
+| tags                     | string[]                   | Tags are typically used for categorization and can be checked to achieve more complex effects.  |
+| subInfoIds               | string[]                   | At runtime, subInfoIds are converted into effect instances, which are used to achieve more complex effects. Check the [SubInfo](###subinfo) section for more details.                         |
+| viewInfoIds              | string[]                   | The IDs of the view data for the effect   |
+| parameters               | Dictionary<string, string> | Parameters are designed as a string dictionary, allowing you to set custom variables and achieve more complex effects. |
+
+### Pre-define Enums
+
+#### TriggerTransType
+ | Field      | Data Description              |
+ | ---------- | ----------------------------- |
+ | SkipNewOne | Ignore the new one            |
+ | CutOldOne  | Apply new one and cut old one |
+
+#### EffectLifeCycleLogic
+ | Field                    | Data Description                            |
+ | ------------------------ | ------------------------------------------- |
+ | None                     | Do nothing                                  |
+ | OnlyActiveOnce           | The Effect Instance will only active once   |
+ | ReactiveAfterCooldownEnd | Automatically reactive after the cd is done |
+
+## IEffectableObject
+
+
+The `IEffectableObject` interface allows a C# object to have effects added or removed. Whether it's an enemy, a character, a card, or any other object you want to apply effects to, it should be made into an `IEffectableObject`.
+
+```csharp
+public interface IEffectableObject
+{
+    /// <summary>
+    /// Gets the display name of the IEffectableObject.
+    /// Not strictly required, but very helpful for debugging.
+    /// </summary>
+    /// <returns></returns>
+    string GetDisplayName();
+
+    /// <summary>
+    /// Retrieves the parent Transform for the effect view based on the viewRoot.
+    /// </summary>
+    /// <param name="viewRoot"></param>
+    /// <returns></returns>
+    Transform GetEffectViewParent(string viewRoot);
+
+    /// <summary>
+    /// Determines whether this IEffectableObject accepts the application of the 
+    /// provided info. This method should only include checks and should not perform 
+    /// any operations on the effect.
+    /// </summary>
+    /// <param name="info"></param>
+    /// <returns>Returns false if this IEffectableObject reject the effect request.</returns>
+    bool ApprovedAddEffect(EffectInfo info);
+
+    /// <summary>
+    /// Triggered when an Effect Instance becomes active.
+    /// </summary>
+    /// <param name="info"></param>
+    void OnEffectActive(EffectInfo info);
+
+    /// <summary>
+    /// Triggered when an Effect Instance becomes inactive.
+    /// </summary>
+    /// <param name="info"></param>
+    void OnEffectDeactive(EffectInfo info);
+
+    /// <summary>
+    /// Determines if the object is still "alive".
+    /// </summary>
+    /// <returns></returns>
+    bool IsAlive();
+
+    /// <summary>
+    /// Since the actual runtime values are maintained by the IEffectableObject, 
+    /// implement the values needed for your game.
+    /// For example, ATK_Current = ATK_Constant * ATK_Ratio.
+    /// </summary>
+    /// <param name="parameterKey"></param>
+    /// <returns></returns>
+    float GetRuntimeValue(string parameterKey);
+
+    /// <summary>
+    /// Destroys the IEffectableObject.
+    /// </summary>
+    void DestoryEffectableObject();
+}
 ```
 
-## Time Manage
-Time Management
+## Time Management
 Different games may use different time units. For example, action or RPG games may use seconds as the time unit, while turn-based games might use round as the time unit.
 
 You will need to implement the time calculation logic based on your project's needs.
@@ -84,235 +132,97 @@ IEnumerator Round(){
 }
 ```
 
-## EffectType
-EffectType is the basic unit that defines a feature during runtime, such as AddAtkPoint, AddAtkRatio, AddBlockChance, etc.
-
-## EffectInfo
-`EffectInfo` defines an effect by storing its settings but does not handle the runtime behavior.
-
-Each EffectInfo should focus on a single function, such as calculating ATK.
-
-| Field                    | Data Type                  | Description                                                                                                                                |
-| ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| id                       | string                     | The ID of an effect                                                                                                                        |
-| type                     | string                     | The EffectType                                                                                                                             |
-| maintainTime             | float                      | The keep going time of the effect                                                                                                          |
-| activeCondition          | string                     | The active trigger timing of condition                                                                                                     |
-| activeRequirementLists   | string[]                   | The qualifications of an active trigger condition (user-defined)                                                                           |
-| activeProbability        | float                      | The probability (0-100) of the effect being activated                                                                                      |
-| deactiveCondition        | string                     | The deactive trigger timing of condition                                                                                                   |
-| deactiveRequirementLists | string[]                   | The qualifications of a deactive trigger condition                                                                                         |
-| deactiveProbability      | float                      | The probability (0-100) of the effect being deactivated                                                                                    |
-| cooldownTime             | float                      | The remaining time in seconds until the effect can be activated again                                                                      |
-| logic                    | enum                       | Life cycle management preset logic, see [TriggerTransType](#triggertranstype) for more info                                                |
-| triggerTransType         | enum                       | An enumeration to manage the logic when the effect tries to trigger twice, see [EffectLifeCycleLogic](#effectlifecyclelogic) for more info |
-| tags                     | string[]                   | Pre-defined tags for an effect                                                                                                             |
-| subInfoIds               | string[]                   | Effect IDs of SubInfo. SubInfo is useful when there is a requirement to trigger another effect                                             |
-| viewInfoIds              | string[]                   | The View data IDs for an effect                                                                                                            |
-| parameters               | Dictionary<string, string> | Custom parameters for your own project                                                                                                     |
-
-### Pre-define Enums
-
-#### TriggerTransType
- | Field      | Data Description              |
- | ---------- | ----------------------------- |
- | SkipNewOne | Ignore the new one            |
- | CutOldOne  | Apply new one and cut old one |
-
-#### EffectLifeCycleLogic
- | Field                    | Data Description                            |
- | ------------------------ | ------------------------------------------- |
- | None                     | Do nothing                                  |
- | OnlyActiveOnce           | The Effect Instance will only active once   |
- | ReactiveAfterCooldownEnd | Automatically reactive after the cd is done |
-
-## IEffectableObject
-
-The IEffectableObject is the interface to making a C# object can be add/remove an Effect, by complete the interface APIs, you can start using the convience of the system.
-Such as an Enemy, a character, a card or anything you would like to attach a effect on itself, you should make it into a IEffectableObject.
-
-```csharp
-public interface IEffectableObject
-{
-    /// <summary>
-    /// Get the display name of an IEffectableObject
-    /// Not really required, but very helpful when debugging
-    /// </summary>
-    /// <returns></returns>
-    string GetDisplayName();
-
-    Transform GetEffectViewParent(string viewRoot);
-
-    /// <summary>
-    /// Detect if a Effect can be request or not
-    /// </summary>
-    /// <param name="info"></param>
-    /// <returns>If false, then system automatically reject a add effect request</returns>
-    bool ApprovedAddEffect(EffectInfo info);
-
-    /// <summary>
-    /// Fire once when an Effect Instance is Active
-    /// </summary>
-    /// <param name="info"></param>
-    void OnEffectActive(EffectInfo info);
-
-    /// <summary>
-    /// Fire once when an Effect Instance is DeActive
-    /// </summary>
-    /// <param name="info"></param>
-    void OnEffectDeactive(EffectInfo info);
-
-    bool IsAlive();
-
-    /// <summary>
-    /// Due to the real runtime value is maintain by the IffectableObject, so you should use this to get the acctual value
-    /// e.g. Current_ATK = ATK_Constant * ATK_Ratio
-    /// So only using EffectSystem.GetEffectSum() is not enough
-    /// </summary>
-    /// <param name="parameterKey"></param>
-    /// <returns></returns>
-    float GetRuntimeValue(string parameterKey);
-
-    void DestoryEffectableObject();
-}
-```
-
 ## Effect Instance
-Effect Instance is the runtime instance which created by the system following the EffectInfo.
-Use the API to add a Effect on a IEffectableObject
+
+An `EffectInstanceBase` is the runtime instance created by the system based on `EffectInfo`. Use the following API to add an effect to an `IEffectableObject`:
 ```csharp
 /// <summary>
-/// Add one or more Effect(s) to an IEffectableObject
-/// will do the ApprovedAddEffect checking before the effect is added
+/// Add one or more Effects to an IEffectableObject.
+/// The system will check ApprovedAddEffect() before adding the effect.
 /// </summary>
-/// <param name="owner">The target obejct would like to add the Effect</param>
-/// <param name="effectInfos">The EffectInfos you would like to add the the owner</param>
-/// <param name="tags">Add the tags on the EffectInstance which is add on this requrest, it is very helpful to manage the Effect Instance, </param>
+/// <param name="owner">The target IEffectableObjectt.</param>
+/// <param name="effectInfos">The EffectInfos to be added to the owner.</param>
+/// <param name="tags">Tags to be added to the EffectInstance for easier management. </param>
 public void AddRequestedEffects(IEffectableObject owner, IEnumerable<EffectInfo> effectInfos, params string[] tags)
 ```
-### Implement the logic of an Effect Instance
-For most of the cases, it's not require to making a logic implementation for an Effect Instance, but you can do it yourself for more customization.
+### Implementing the logic of an EffectInstanceBase
+If you need more than just simple addition or subtraction of values, you can customize the behavior of the Effect. For example, the Effect's value can dynamically change based on the game's state.
 
-See the example:
+Example:
 ```csharp
-// Create a new class and inherit the EffectInstanceBase class
-public class Effect_MyCoolEffect : EffectInstanceBase
+// Create a new class that inherits from the EffectInstanceBase class
+public class Effect_MyEffect : EffectInstanceBase
 {
     /// <summary>
-    /// Excude when an Effect is attach
+    /// Executes when the Effect is attached.
     /// </summary>
     protected override void OnStart(){}
 
     /// <summary>
-    /// Excude when an Effect is Active by ActiveCondition
+    ///Executes when the Effect is activated.
     /// </summary>
     /// <param name="triggerConditionInfo"></param>
     public override void OnActive(EffectTriggerConditionInfo triggerConditionInfo){}
 
     /// <summary>
-    /// Excude when an Effect is Deactive DctiveCondition
+    /// Executes when the Effect is deactivated.
     /// </summary>
     /// <param name="triggerConditionInfo"></param>
     public override void OnDeactive(EffectTriggerConditionInfo triggerConditionInfo){}
 
     /// <summary>
-    /// Excude when the colddown is finish
+    /// Executes when the cooldown ends.
     /// </summary>
-    public override void OnColdownEnd(){}
+    public override void OnCooldownEnd(){}
 }
 
-// For Trigger base Effect you can choose to inherit the EffectInstanceBase class
-public class Effect_MyCoolEffect : EffectTriggerBase
+// For a trigger-based effect, you can inherit from the EffectTriggerBase class
+public class Effect_Myffect : EffectTriggerBase
 { 
     /// <summary>
-    /// Excude when the Effect is trigger
+    /// Execute immediately after OnActive.
     /// </summary>
-    protected override void OnTrigger(EffectTriggerConditionInfo conditionInfo);
+    protected override void OnTrigger(EffectTriggerConditionInfo conditionInfo){}
 }
-```
-
-And Registe your Implementation to the EffectSystem
-```csharp
-Dictionary<string, Type> EffectTypeQuery = new Dictionary<string, Type>
-{
-    // The key is the effet type
-    ["MysterySkill"] = typeof(Effect_MyCoolEffect),
-};
-EffectDataProvider.RegisteEffectTypeQuery(EffectTypeQuery);
-```
-
-### Behaviour
-The Effect Instance has following built-in behaviour
-
-#### Instance Count
-The system allow an IEffectableObject ownes multiple Effect Instance.
-
-For instance you can design a effect like this:
-| Shield Effect |                                                           |
-| ------------- | --------------------------------------------------------- |
-| value         | How much the  injured decrease on this shield effect in % |
-
-See the example:
-```csharp
-var effectShield_Small = new EffectInfo{
-    id: "Shield_Small",
-    type: "Shield",
-    value: 20,
-};
-
-var effectShield_Big = new EffectInfo{
-    id: "Shield_Big",
-    type: "Shield",
-    value: 50,
-};
-
-IEffectableObject target;
-
-AddRequestedEffects(target, effectShield_Small);
-AddRequestedEffects(target, effectShield_Big);
-
-var totalEffects = EffectSystem.Instance.GetEffectsByType(target,"Shield_Big");
-// totalEffects.Count is 2
 ```
 
 #### Value
-The System automatically summed up all `value` by the `type` on one IEffectableObject, 
+The Effect System provides various methods for adding, removing, and querying effects.
+Below are some commonly used methods.
 
-Use the follow API to get the current Value on the IEffectableObject:
-```csharp
-/// <summary>
-/// Get the sum value of the EffectType on an IEffectableObject
-/// </summary>
-/// <param name="target">The target IEffectableObject</param>
-/// <param name="effectType">The EffectType</param>
-/// <returns></returns>
-public float GetEffectSum(IEffectableObject target, string effectType);
-```
+| Method                                      | Description                                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `AddRequestedEffects`                       | Adds one or more effects to an IEffectableObject. The system checks `ApprovedAddEffect()` before adding. |
+| `RemoveEffectByTag`                         | Removes all EffectInstances from an IEffectableObject by their tags.                     |
+| `RemoveEffectsByType`                       | Removes all EffectInstances from an IEffectableObject by their type.               |
+| `GetEffectSum`                              | Gets the total value of all effects of the specified type on an IEffectableObject.        |
+| `GetEffectsByType`                          | Retrieves a list of EffectInstances on an IEffectableObject based on their type.         |
 
-For instance, you can apply 2 effect on an IEffectableObject
-The example data, we define 2 effect, but with same `EffectType`
+
 ```csharp
+// Define two effects with the same type
 var effectAddAtkSmall = new EffectInfo{
     id: "AddAtkSmall",
     type: "ATK_Constant",
     value: 100,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
-
 var effectAddAtkMedium = new EffectInfo{
     id: "AddAtkMedium",
     type: "ATK_Constant",
     value: 200,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
 
 IEffectableObject target;
+//Get the EffectSystem using your dependency management solution
+EffectSystem effectSystem;
 
-AddRequestedEffects(target, effectAddAtkSmall);
-AddRequestedEffects(target, effectAddAtkMedium);
+effectSystem.AddRequestedEffects(target, effectAddAtkSmall);
+effectSystem.AddRequestedEffects(target, effectAddAtkMedium);
 
 /* or
-AddRequestedEffects(
+effectSystem.AddRequestedEffects(
     target, new []{
         effectAddAtkSmall,
         effectAddAtkMedium
@@ -320,12 +230,15 @@ AddRequestedEffects(
 );
 */
 
-var result = GetEffectSum( target, "ATK_Constant");
-// result is 300 
+var sumValue = effectSystem.GetEffectSum( target, "ATK_Constant");
+// sumValue is 300 
+var effects = effectSystem.GetEffectsByType(target, "ATK_Constant");
+// effects.count = 2
 ```
 
+
 #### Runtime Value
-Runtime value is a abstract value, for some project they may design a complicated value calculation design which may calculating the values between different EffectTypes, 
+Runtime value is a user-defined value, useful for projects that require complex value calculations involving multiple effect types.
 
 
 See the follow example:
@@ -334,51 +247,52 @@ var effectAddAtkSmall = new EffectInfo{
     id: "AddAtkSmall",
     type: "ATK_Constant",
     value: 100,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
 
 var effectAddAtkMedium = new EffectInfo{
     id: "AddAtkMedium",
     type: "ATK_Constant",
     value: 200,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
 
 var effectAddAtkSmall_Ratio = new EffectInfo{
     id: "AddAtkSmall_Ratio",
     type: "ATK_Ratio",
     value: 0.05,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
 
 var effectAddAtkMedium_Ratio = new EffectInfo{
     id: "AddAtkMedium_Ratio",
     type: "ATK_Ratio",
     value: 0.08,
-    /// ignore other parameters on this example
+    /// Other parameters are ignored in this example
 };
 
+EffectSystem effectSystem;
 IEffectableObject target = new MyCharacter();
 
-AddRequestedEffects(target, effectAddAtkSmall);
-AddRequestedEffects(target, effectAddAtkMedium);
-AddRequestedEffects(target, effectAddAtkSmall_Ratio);
-AddRequestedEffects(target, effectAddAtkMedium_Ratio);
+effectSystem.AddRequestedEffects(target, effectAddAtkSmall);
+effectSystem.AddRequestedEffects(target, effectAddAtkMedium);
+effectSystem.AddRequestedEffects(target, effectAddAtkSmall_Ratio);
+effectSystem.AddRequestedEffects(target, effectAddAtkMedium_Ratio);
 
 public class MyCharcter : IEffectableObject{
 
-    // Use the IEffectableObject.GetRuntimeValue(string) to get the runtime value which you define
+    // Use IEffectableObject.GetRuntimeValue(string) to get the user-defined runtime value
     public float GetRuntimeValue(string parameterKey){
         switch(parameterKey){
             case "CurrentATK":
                 {
-                    var result_constant = GetEffectSum( target, "ATK_Constant");
-                    var result_ratio = GetEffectSum( target, "ATK_Ratio");
+                    var result_constant = effectSystem.GetEffectSum( target, "ATK_Constant");
+                    var result_ratio = effectSystem.GetEffectSum( target, "ATK_Ratio");
                     // result_constant is 300 
                     // result_ratio is 0.13 
 
-                    // The Runtime value is define by the IEffectableObject in your own project
-                    // In this example we use "ATK_Constant" to define the base value of ATK, use "ATK_Ratio" to define the boost ratio of ATK and then calculating the acctual result in runtime
+                    // The runtime value is defined by IEffectableObject in your project
+                    // In this example, "ATK_Constant" defines the base ATK value, and "ATK_Ratio" defines the boost ratio. The actual result is calculated at runtime.
                     return result_constant * (1f + result_ratio);
                 }
                 break;
@@ -389,113 +303,113 @@ public class MyCharcter : IEffectableObject{
 }
 ```
 
+
+
+
 #### MaintainTime
-By default, the system provide a method to manage the Effect time-based lifecycle.
-Use the maintainTime filed to define the duration of an effect should be take affect, if the maintainTime is greater than 0 then the effect will have a time-based lifecycle.
-Once the effect have maintainTime parameter, you can use [TriggerTransType](#triggertranstype) and [EffectLifeCycleLogic](#effectlifecyclelogic) to control more detailed behaviour of an Effect.
+Effect System provides a method to manage the time-based lifecycle of an effect. Use the maintainTime field to define how long an effect should remain active. If `maintainTime` is greater than 0, the effect will follow a time-based lifecycle. You can use [TriggerTransType](#triggertranstype) and [EffectLifeCycleLogic](#effectlifecyclelogic) to control more specific behaviors. On the other hand, if maintainTime is 0, the effect's lifecycle will not be affected by time.
 
-> The unit of a `Time` is defined by the project, eg. Seconds, Actions, Rounds etc. In below example, we assuming the unit of the `Time` is seconds
+> The unit of "Time" is defined by the project, such as seconds, actions, or rounds. In the example below, we assume the unit of time is seconds.
 
-See the Example:
+Example:
 ```csharp
 var effectAddAtkSmall = new EffectInfo{
     id: "AddAtkSmall",
     type: "ATK_Constant",
     value: 100,
-    maintainTime: 0, // see here!!
-    /// ignore other parameters on this example
+    maintainTime: 0, // No time-based lifecycle
+    /// Other parameters are ignored in this example
 };
 
 var effectAddAtkMedium = new EffectInfo{
     id: "AddAtkMedium",
     type: "ATK_Constant",
     value: 200,
-    maintainTime: 10, // see here!!
-    /// ignore other parameters on this example
+    maintainTime: 10, // 10-second duration
+    /// Other parameters are ignored in this example
 };
 
+EffectSystem effectSystem;
 IEffectableObject target;
 
-AddRequestedEffects(target, effectAddAtkSmall);
-AddRequestedEffects(target, effectAddAtkMedium);
+effectSystem.AddRequestedEffects(target, effectAddAtkSmall);
+effectSystem.AddRequestedEffects(target, effectAddAtkMedium);
 
 
-// Call immediately after AddRequestedEffects()
-var result = GetEffectSum( target, "ATK_Constant");
+var result = effectSystem.GetEffectSum( target, "ATK_Constant");
 // result is 300 
 
-// Call after 10 secs or more after AddRequestedEffects()
-var result = GetEffectSum( target, "ATK_Constant");
+//wait 10 seconds
+await Task.Delay(TimeSpan.FromSeconds(10));
+
+var result = effectSystem.GetEffectSum( target, "ATK_Constant");
 // result is 100 
 ```
 
-#### ColddownTime
-Like `MaintainTime`, ColddownTime is another parameter to control the time-based lifecycle, which is focus on the duplicate Add Effect behaviour.
-It also use [TriggerTransType](#triggertranstype) and [EffectLifeCycleLogic](#effectlifecyclelogic) to control more detailed behaviour of an Effect.
+#### CooldownTime
+An Effect can be activated and deactivated freely before being recycled. `CooldownTime` is used to restrict how long the Effect cannot be reactivated after it has been deactivated.
+It also uses [TriggerTransType](#triggertranstype) and [EffectLifeCycleLogic](#effectlifecyclelogic) to control more detailed behaviors.
 
-See the Example:
+Example:
 ```csharp
 var effectAddAtkSmall = new EffectInfo{
     id: "AddAtkSmall",
     type: "ATK_Constant",
     value: 100,
     maintainTime: 5,
-    colddownTime: 10, // see here!!
-    /// ignore other parameters on this example
+    cooldownTime: 10, // 10-second cooldown
+    /// Other parameters are ignored in this example
 };
 
 IEffectableObject target;
 
-AddRequestedEffects(target, effectAddAtkSmall); // first add call
-await Task.Delay(TimeSpan.FromSeconds(1));
-AddRequestedEffects(target, effectAddAtkSmall);  // second add call
-var result = GetEffectSum( target, "ATK_Constant");
-// result is 100, due to the effect take 10 secs to cd, the second add call in the cd time will be ignore
 
 await Task.Delay(TimeSpan.FromSeconds(10));
-var result = GetEffectSum( target, "ATK_Constant"); // third add call
-// result is 100, the time is over 10 secs so the  third add call success and take affect
+
+
 ```
+
+<!-- TODO:補上cooldown範例 -->
 
 #### Condition  
 Condition is summary of the following parameter: 
 
 | Field                    | Data Type | Description                                                      |
 | ------------------------ | --------- | ---------------------------------------------------------------- |
-| activeCondition          | string    | The active trigger timing of condition                           |
-| activeRequirementLists   | string[]  | The qualifications of an active trigger condition (user-defined) |
-| activeProbability        | float     | The probability (0-100) of the effect being activated            |
-| deactiveCondition        | string    | The deactive trigger timing of condition                         |
-| deactiveRequirementLists | string[]  | The qualifications of a deactive trigger condition               |
+| activeCondition          | string    | The condition that triggers the effect activation                           |
+| activeRequirementLists   | string[]  | The qualifications required to activate the effect |
+| activeProbability        | float     | The probability (0-100) of the effect being activated         |
+| deactiveCondition        | string    | The condition that triggers the effect deactivation                         |
+| deactiveRequirementLists | string[]  | The qualifications required to deactivate the effect            |
 | deactiveProbability      | float     | The probability (0-100) of the effect being deactivated          |
 
 See the Example:
 ```csharp
 var effectAddAtkSmall = new EffectInfo{
-    id: "TriggerEffect_Sample",
-    type: "TriggerEffect_Sample",
+    id: "AddAtkSmall",
+    type: "ATK_Constant",
     activeCondition: "ConditionOnAttack"
 };
-
+EffectSystem effectSystem;
 MyCharacter character = new MyCharacter();
-AddRequestedEffects(target, effectAddAtkSmall); // first add call
+
+effectSystem.AddRequestedEffects(target, effectAddAtkSmall); // first add call
 
 class MyCharacter: IEffectableObject {
     void DoAttack(){
-        // All the Effect Instance on 'this' object which activeCondition == "ConditionOnAttack" will try to active
-        // as the result the effect with id "TriggerEffect_Sample" will be active
-        EffectSystem.Instace.EffectTriggerCondition("ConditionOnAttack", this);
+        // All Effect Instances on 'this' object with activeCondition == "ConditionOnAttack" will attempt to activate.
+        effectSystem.EffectTriggerCondition("ConditionOnAttack", this);
     }
 }
 ```
 
-For some case you may want to send target parameter, here is another example
+In some cases, you may want to pass a target parameter.
+
+Example:
 ```csharp
 class MyCharacter: IEffectableObject {
     void DoAttack(IEffectableObject enemy){
-        // All the effectInstance on 'this' object which activeCondition == "ConditionOnAttack" will try to active
-        // as the result the effect with id "TriggerEffect_Sample" will be active
-        EffectSystem.Instace.EffectTriggerCondition("ConditionOnAttack", this, enemy);
+        effectSystem.EffectTriggerCondition("ConditionOnAttack", this, enemy);
     }
 }
 
@@ -506,241 +420,25 @@ public class Effect_TriggerEffect_Sample : EffectTriggerBase
     {
         if (conditionInfo.target != null)
         {
-            // Use the target which is set from the EffectSystem.Instace.EffectTriggerCondition excude;
+            // Use the target which is set from the EffectTriggerCondition;
         }
     }
 }
 ```
 
-# Effect Editor Window
-The system provide a very helpful tool to inspect the runtime Effect Instance.
+### SubInfo
 
-Menu Path : MacacaGames > Effect System > Effect Editor Window
-
-The editor provide those feature:
-- Display all IEffectableObject in the Memery
-- Inspect the runtime Effect Instance on an IEffectableObject
-- Add/Remove one or more Effect in the Runtime
-- Bake all string parameter into a const variable
-- Preview the Effect Description of a EffectInfo (WIP)
-
-<img src="./Img~/effecteditor.png" />
-
-
-# Effect Description
-To make the use understand your Effect is very important, the system provide a feature to generate Effect Description by an EffectInfo.
-
-## Description Template 
-You need provide a Description Template first to generate a runtime Description.
-
-See the example:
-```csharp
-var myTemplate = "Deal extra {Effect_Atk_Ratio.value} damage to enemies with full HP.";
-var myEffect = new EffectInfo{
-    id: "TriggerEffect_Sample",
-    type: "Atk_Ratio",
-    value: 12
-};
-
-var result = EffectSystem.Instance.GetCustomEffectsDescription(myTemplate, new[]{myEffect});
-// result is "Deal extra 12 damage to enemies with full HP."
-```
-
-### The rule of the Template
-
-The Template use the key word to detect which part in the template should be replaced, here is the rule of a key word.
-- Start with `{` char
-- End with `}` char
-- Use `Effect_` or `#` char to define the EffectType, for instance #Atk_Ratio means use the Atk_Ratio EffectType
-- Use `.` to access the member in the EffectInfo, the `.` can continue with the key follow the table
-- Use `subinfo` or  `>` to access the EffectInfo in subinfo
-
-| Key                 | Description                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------ |
-| value               | use the `value` member in the EffectInfo                                                   |
-| val                 | same as value but simplified                                                               |
-| maintainTime        | use the `maintainTime` member in the EffectInfo                                            |
-| time                | same as `maintainTime` but simplified                                                      |
-| cooldownTime        | use the `cooldownTime` member in the EffectInfo                                            |
-| cd                  | same as `cooldownTime` but simplified                                                      |
-| activeProbability   | use the `activeProbability` member in the EffectInfo                                       |
-| activeProb          | same as `activeProbability` but simplified                                                 |
-| deactiveProbability | use the `deactiveProbability` member in the EffectInfo                                     |
-| deactiveProb        | same as `deactiveProbability` but simplified                                               |
-| :%                  | The value will be display as percentage, the value will *100 first and then display as oo% |
-
-## Default Description
-It is recommand to make Default Description for all EffectType
-
-```csharp
-// First regist the template resource
-EffectDataProvider.SetEffectDescriptionStringDelegate(
-    (m) =>
-    {   
-        // m is the EffectType
-        switch(m){
-            case "Atk_Ratio":
-                return "Deal extra {Effect_Atk_Ratio.value} damage to enemies with full HP.";
-            case "Defend":
-                return "Reduce {Effect_Defend.value} damage taken.";
-        }
-    }
-);
-
-var effect_sample_01 = new EffectInfo{
-    id: "effect_sample_01",
-    type: "Atk_Ratio",
-    value: 123
-};
-var effect_sample_02 = new EffectInfo{
-    id: "effect_sample_02",
-    type: "Defend",
-    value: 999
-};
-// After regist the template resource, you can directlly call EffectSystem.Instance.GetDefaultEffectDescription to get the default Description
-var result = EffectSystem.Instance.GetDefaultEffectDescription(effect_sample_01);
-// result is "Deal extra 123 damage to enemies with full HP."
-
-// Or provide multiple EffectInfo, the system will auto combine all Description line by line
-var result = EffectSystem.Instance.GetDefaultEffectDescription(new []{effect_sample_01, effect_sample_02});
-/* 
-result will be 
-
-Deal extra 123 damage to enemies with full HP.
-Reduce 999 damage taken.
-*/
-```
-
-A more complicated example
-```csharp
-var effect_sample_01 = new EffectInfo{
-    id: "effect_sample_01",
-    type: "Trigger_Attach",
-    value: 0,
-    subInfoIds:new []{"effect_sample_subinfo_01"}
-};
-
-var effect_sample_02 = new EffectInfo{
-    id: "effect_sample_02",
-    type: "Atk_Ratio",
-    maintainTime: 4.5,
-    value: 999
-};
-
-// This case the `effect_sample_01` has subInfos, so we need to registe the EffectDataProvider, the subInfo is query during runtime
-var effect_sample_subinfo_01 = new EffectInfo{
-    id: "effect_sample_subinfo_01",
-    type: "Trigger_HitSelf_Constant",
-    value: 555
-};
-
-var effects = new []{effect_sample_01, effect_sample_02, effect_sample_subinfo_01};
-EffectDataProvider.SetEffectInfoDelegate(
-    (List<string> effectIds) =>
-    {
-        return effects.Where(m => effectIds.Contains(m.id)).ToList();
-    }
-);
-
-var myTemplate = @"Deal extra {Effect_Trigger_Attach>Effect_Trigger_HitSelf_Constant.value} damage to enemies with 50% or less HP.
-Increase {Effect_Atk_Ratio.value} Attack for {Effect_Atk_Ratio.time} seconds after killing an enemy.";
-
-// Or provide multiple EffectInfo, the system will auto combine all Description line by line
-// The subInfo is resolve in runtime, so only send the root EffectInfos
-var result = EffectSystem.Instance.GetCustomEffectsDescription(myTemplate, new []{effect_sample_01, effect_sample_02});
-/* 
-result will be 
-
-Deal extra 555 damage to enemies with 50% or less HP.
-Increase 999 Attack for 4.5 seconds after killing an enemy.
-*/
-```
-
-> It is always recommended to use `EffectSystem.Instance.GetCustomEffectsDescription()` to generate a `human-kindly` Description 
-> 
-> But the `EffectSystem.Instance.GetDefaultEffectDescription()` provide a simple way to automatically generate at least a `human-readable` Description
+<!-- 什麼是Subinfo
+補上SubInfoId的轉換方式
+補上轉換的實作方式 -->
 
 
 
-# Prepare Your Data
-After understanding the concept of the EffectSystem, it's time to prepare your runtime data, on perious samples, we directly create new EffectInfo with the constructor, but there are some other method to setting up your effect datas.
-
-## Unity Serialization
-The basic way is to create a `List<EffectInfo>` in somewhere(MonoBehaviour/ScriptableObject) in your project, then use the Unity Inspector to edit them. 
-
-### EffectGroup
-EffectGroup is a pre-define Unity ScriptableObject to help you store the EffectInfo in your Unity.
-It provide some very useful feature:
-- Export the current EffectInfo(s) to Json format
-- Import EffectInfo(s) from Json
-- Directly using EffectGroup in most of EffectSystem APIs
-<img src="./Img~/effectgroup.png" />
-
-## Google Sheet Template
-
-For more convience of batch data editing, we design a Google Sheet to help this stuff.
-
-Here's the Table Example: [Effect Data Sample Table](https://docs.google.com/spreadsheets/d/1N_Bzdc1XSgyqXYlBlHYp0-XWBlFA-AAw_AUBdIEWj5U/edit?usp=sharing)
-
-Please make a copy of this sample and do any modification yourself!
-
-### Pre Baked String for strong Type usage
-
-On the `ScriptOptions` tab in the Sheet, you can copy directly the `A1` field to the `Effect Editor Window` to pre-baked all string parameter in your sheet, since the system use string as the ID to refer other resource, for more safety usage, it's recommend to use pre-baked string define for all your parameters. 
 
 
-## EffectDataProvider
-
-EffectDataProvider provide the runtime data resource for the runtime data providing, for instance, if you have using the `subInfo` feature, the system require delegate to get the EffectType by Id in runtime.
-Since different project manage its owne EffectInfos, you need to regist the method to make all feature works.
-
-```csharp
-public static class EffectDataProvider
-{
-    public static Func<List<string>, List<EffectInfo>> GetEffectInfo { get; private set; }
-    public static void SetEffectInfoDelegate(Func<List<string>, List<EffectInfo>> GetEffectInfo)
-    {
-        EffectDataProvider.GetEffectInfo = GetEffectInfo;
-    }
-
-    public static Func<List<string>, List<EffectViewInfo>> GetEffectViewInfo { get; private set; }
-    public static void SeEffectViewInfoDelegate(Func<List<string>, List<EffectViewInfo>> GetEffectViewInfo)
-    {
-        EffectDataProvider.GetEffectViewInfo = GetEffectViewInfo;
-    }
-
-    public static Func<string, string> GetEffectDescriptionString { get; private set; }
-
-    public static void SetEffectDescriptionStringDelegate(Func<string, string> GetEffectDescriptionString)
-    {
-        EffectDataProvider.GetEffectDescriptionString = GetEffectDescriptionString;
-    }
-}
 
 
-```
 
-# Effect View
-To Be Continue
 
-# Serialization
-## MessagePack
-The MessagePack.Csharp should do a code generate first to make the EffectInfo available to use on AOT Platform
 
-First, use the mpc tool to generate the Resolver, here is some example: 
-For more detail, see the MessagePack Document
-```bash
-dotnet new tool-manifest
-dotnet tool install MessagePack.Generator
-dotnet tool run mpc -i {PATH_TO_YOUR_EFFECTPACKAGE_MODEL_FOLEDR} -o ./Assets/EffectSystemResources/EffectSystem.Generated.cs -r EffectSystemResolver -n MacacaGames.EffectSystem
 
-## Example
-## dotnet tool run mpc -i ./MacacaPackages/EffectSystem/Model -o ./Assets/EffectSystemResources/EffectSystem.Generated.cs -r EffectSystemResolver -n MacacaGames.EffectSystem
-```
-
-And add into your StaticCompositeResolver
-```csharp
-StaticCompositeResolver.Instance.Register(
-    MacacaGames.EffectSystem.Resolvers.EffectSystemResolver.Instance,
-);
-```

@@ -17,7 +17,7 @@ export default defineUserConfig({
       "Introduction",
       "Installation",
       "GettingStarted",
-      "Fundamentals",
+      "AllContent",
       "TroubleShooting",
     ],
   }),
