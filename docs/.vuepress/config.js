@@ -8,6 +8,8 @@ export default defineUserConfig({
   title: 'Effect System',
   description: 'A dynamic calculator for game effect',
 
+  base: '/EffectSystemDocs/',
+
   theme: defaultTheme({
     logo: 'https://vuejs.press/images/hero.png',
 
