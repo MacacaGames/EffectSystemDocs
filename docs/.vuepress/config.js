@@ -11,7 +11,7 @@ export default defineUserConfig({
   base: '/EffectSystemDocs/',
 
   theme: defaultTheme({
-    logo: 'https://vuejs.press/images/hero.png',
+    logo: 'LogoV2.png',
 
     navbar: [ 
       {
