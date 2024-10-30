@@ -197,7 +197,7 @@ public class Effect_Myffect : EffectTriggerBase
 | logic                    | enum                       | Life cycle management preset logic, see [TriggerTransType](#triggertranstype) for more details      |
 | triggerTransType         | enum                       | An enumeration for managing the logic when the effect is triggered more than once, see [EffectLifeCycleLogic](#effectlifecyclelogic) for detailss |
 | tags                     | string[]                   | Tags are typically used for categorization and can be checked to achieve more complex effects.  |
-| subInfoIds               | string[]                   | At runtime, subInfoIds are converted into effect instances, which are used to achieve more complex effects. Check the [SubInfo](###subinfo) section for more details.                         |
+| subInfoIds               | string[]                   | At runtime, subInfoIds are converted into effect instances, which are used to achieve more complex effects. Check the [SubInfo](#subinfo) section for more details.                         |
 | viewInfoIds              | string[]                   | The IDs of the view data for the effect   |
 | parameters               | Dictionary<string, string> | Parameters are designed as a string dictionary, allowing you to set custom variables and achieve more complex effects. |
 

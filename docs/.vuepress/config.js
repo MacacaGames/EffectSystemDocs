@@ -30,8 +30,8 @@ export default defineUserConfig({
       "Fundamentals",
       "Effect Editor Window",
       "Prepare Your Data",
+      "Serialization",
       "Advanced",
-      "TroubleShooting",
     ],
   }),
 
