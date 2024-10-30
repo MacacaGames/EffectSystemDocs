@@ -6,8 +6,8 @@ Add the following to your project's manifest.json file:
 {
     "dependencies": {
         "com.macacagames.utility": "https://github.com/MacacaGames/MacacaUtility.git",
-         "com.macacagames.effectsystem.editor": "git@github.com:MacacaGames/EffectSystem.git?path=Editor/src",
-        "comm.acacagames.effectsystem.model": "git@github.com:MacacaGames/EffectSystem.git?path=Model/src",
+        "com.macacagames.effectsystem.editor": "git@github.com:MacacaGames/EffectSystem.git?path=Editor/src",
+        "com.macacagames.effectsystem.model": "git@github.com:MacacaGames/EffectSystem.git?path=Model/src",
         "com.macacagames.effectsystem.runtime": "git@github.com:MacacaGames/EffectSystem.git?path=Runtime/src",
         "com.macacagames.effectsystem.view": "git@github.com:MacacaGames/EffectSystem.git?path=View",
     }
@@ -25,7 +25,7 @@ git submodule add https://github.com/MacacaGames/EffectSystem.git MyPackages
     "dependencies": {
         "com.macacagames.utility": "https://github.com/MacacaGames/MacacaUtility.git",
         "com.macacagames.effectsystem.editor": "file:../MyPackages/EffectSystem/Editor/src",
-        "comm.acacagames.effectsystem.model": "file:../MyPackages/EffectSystem/Model/src",
+        "com.macacagames.effectsystem.model": "file:../MyPackages/EffectSystem/Model/src",
         "com.macacagames.effectsystem.runtime": "file:../MyPackages/EffectSystem/Runtime/src",
         "com.macacagames.effectsystem.view": "file:../MyPackages/EffectSystem/View",
     }
